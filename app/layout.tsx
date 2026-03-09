@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   applicationName: 'Gym Tracker',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: 'Gym Tracker',
   },
   formatDetection: {
@@ -30,31 +30,28 @@ export const metadata: Metadata = {
     userScalable: false,
     viewportFit: 'cover',
   },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
   icons: {
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
+      { url: '/icons/icon-96x96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/icons/icon-128x128.png', sizes: '128x128', type: 'image/png' },
+      { url: '/icons/icon-144x144.png', sizes: '144x144', type: 'image/png' },
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      {
-        url: '/icon-192.png',
-        sizes: '192x192',
-      },
-      {
-        url: '/icon-512.png',
-        sizes: '512x512',
-      },
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 }
 
