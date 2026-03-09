@@ -13,9 +13,15 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
+      .then(async (cache) => {
         console.log('[SW] Caching static assets')
-        return cache.addAll(STATIC_ASSETS)
+        for (const asset of STATIC_ASSETS) {
+          try {
+            await cache.add(asset)
+          } catch (e) {
+            console.warn('[SW] Failed to cache asset (non-fatal):', asset, e)
+          }
+        }
       })
       .then(() => self.skipWaiting())
   )
@@ -29,9 +35,9 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames
             .filter((cacheName) => {
-              return cacheName.startsWith('gym-tracker') && 
-                     cacheName !== STATIC_CACHE && 
-                     cacheName !== DYNAMIC_CACHE
+              return cacheName.startsWith('gym-tracker') &&
+                cacheName !== STATIC_CACHE &&
+                cacheName !== DYNAMIC_CACHE
             })
             .map((cacheName) => {
               console.log('[SW] Deleting old cache:', cacheName)
@@ -113,6 +119,7 @@ self.addEventListener('fetch', (event) => {
                 { headers: { 'Content-Type': 'image/svg+xml' } }
               )
             }
+            return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
           })
       })
   )
