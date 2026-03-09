@@ -9,8 +9,9 @@ export default function Home() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center flex-col gap-3">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-muted-foreground text-sm">Cargando entrenamientos...</p>
       </div>
     )
   }

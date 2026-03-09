@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export interface Set {
   id: string
@@ -21,113 +22,231 @@ export interface Workout {
   exercises: Exercise[]
 }
 
-const STORAGE_KEY = 'gym-workouts'
-
 export function useWorkouts() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  const [deviceId, setDeviceId] = useState<string>('')
+  const supabase = createClient()
 
-  // Load from localStorage on mount
+  // Initialize device ID from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        setWorkouts(JSON.parse(stored))
-      } catch (error) {
-        console.error('Error loading workouts:', error)
-      }
+    let id = localStorage.getItem('device-id')
+    if (!id) {
+      id = `device-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('device-id', id)
     }
-    setIsLoaded(true)
+    setDeviceId(id)
   }, [])
 
-  // Save to localStorage whenever workouts change
+  // Fetch workouts from Supabase
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts))
+    if (!deviceId) return
+
+    const fetchWorkouts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('workouts')
+          .select(
+            `
+            id,
+            name,
+            created_at,
+            exercises (
+              id,
+              name,
+              sets (
+                id,
+                reps,
+                weight
+              )
+            )
+          `
+          )
+          .eq('device_id', deviceId)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const formattedWorkouts = (data || []).map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          date: w.created_at,
+          exercises: (w.exercises || []).map((e: any) => ({
+            id: e.id,
+            name: e.name,
+            sets: e.sets || [],
+          })),
+        }))
+
+        setWorkouts(formattedWorkouts)
+      } catch (error) {
+        console.error('Error fetching workouts:', error)
+      } finally {
+        setIsLoaded(true)
+      }
     }
-  }, [workouts, isLoaded])
 
-  const createWorkout = (name: string): Workout => {
-    const newWorkout: Workout = {
-      id: Date.now().toString(),
-      name,
-      date: new Date().toISOString(),
-      exercises: [],
+    fetchWorkouts()
+  }, [deviceId, supabase])
+
+  const createWorkout = async (name: string) => {
+    if (!deviceId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('workouts')
+        .insert([{ name, device_id: deviceId }])
+        .select()
+
+      if (error) throw error
+
+      const newWorkout: Workout = {
+        id: data[0].id,
+        name: data[0].name,
+        date: data[0].created_at,
+        exercises: [],
+      }
+
+      setWorkouts([newWorkout, ...workouts])
+      return newWorkout
+    } catch (error) {
+      console.error('Error creating workout:', error)
     }
-    setWorkouts([newWorkout, ...workouts])
-    return newWorkout
   }
 
-  const deleteWorkout = (id: string) => {
-    setWorkouts(workouts.filter((w) => w.id !== id))
-  }
+  const deleteWorkout = async (id: string) => {
+    try {
+      const { error } = await supabase.from('workouts').delete().eq('id', id)
 
-  const addExercise = (workoutId: string, exerciseName: string): Exercise => {
-    const newExercise: Exercise = {
-      id: Date.now().toString(),
-      name: exerciseName,
-      sets: [],
+      if (error) throw error
+
+      setWorkouts(workouts.filter((w) => w.id !== id))
+    } catch (error) {
+      console.error('Error deleting workout:', error)
     }
-    setWorkouts(
-      workouts.map((w) =>
-        w.id === workoutId ? { ...w, exercises: [...w.exercises, newExercise] } : w
-      )
-    )
-    return newExercise
   }
 
-  const deleteExercise = (workoutId: string, exerciseId: string) => {
-    setWorkouts(
-      workouts.map((w) =>
-        w.id === workoutId
-          ? { ...w, exercises: w.exercises.filter((e) => e.id !== exerciseId) }
-          : w
+  const addExercise = async (
+    workoutId: string,
+    exerciseName: string
+  ): Promise<Exercise | undefined> => {
+    try {
+      const { data, error } = await supabase
+        .from('exercises')
+        .insert([{ name: exerciseName, workout_id: workoutId }])
+        .select()
+
+      if (error) throw error
+
+      const newExercise: Exercise = {
+        id: data[0].id,
+        name: data[0].name,
+        sets: [],
+      }
+
+      setWorkouts(
+        workouts.map((w) =>
+          w.id === workoutId
+            ? { ...w, exercises: [...w.exercises, newExercise] }
+            : w
+        )
       )
-    )
+      return newExercise
+    } catch (error) {
+      console.error('Error adding exercise:', error)
+    }
   }
 
-  const addSet = (workoutId: string, exerciseId: string, reps: number, weight: number) => {
-    setWorkouts(
-      workouts.map((w) =>
-        w.id === workoutId
-          ? {
-              ...w,
-              exercises: w.exercises.map((e) =>
-                e.id === exerciseId
-                  ? {
-                      ...e,
-                      sets: [
-                        ...e.sets,
-                        {
-                          id: Date.now().toString(),
-                          reps,
-                          weight,
-                        },
-                      ],
-                    }
-                  : e
-              ),
-            }
-          : w
+  const deleteExercise = async (workoutId: string, exerciseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('exercises')
+        .delete()
+        .eq('id', exerciseId)
+
+      if (error) throw error
+
+      setWorkouts(
+        workouts.map((w) =>
+          w.id === workoutId
+            ? {
+                ...w,
+                exercises: w.exercises.filter((e) => e.id !== exerciseId),
+              }
+            : w
+        )
       )
-    )
+    } catch (error) {
+      console.error('Error deleting exercise:', error)
+    }
   }
 
-  const deleteSet = (workoutId: string, exerciseId: string, setId: string) => {
-    setWorkouts(
-      workouts.map((w) =>
-        w.id === workoutId
-          ? {
-              ...w,
-              exercises: w.exercises.map((e) =>
-                e.id === exerciseId
-                  ? { ...e, sets: e.sets.filter((s) => s.id !== setId) }
-                  : e
-              ),
-            }
-          : w
+  const addSet = async (
+    workoutId: string,
+    exerciseId: string,
+    reps: number,
+    weight: number
+  ) => {
+    try {
+      const { data, error } = await supabase
+        .from('sets')
+        .insert([{ reps, weight, exercise_id: exerciseId }])
+        .select()
+
+      if (error) throw error
+
+      const newSet: Set = {
+        id: data[0].id,
+        reps: data[0].reps,
+        weight: data[0].weight,
+      }
+
+      setWorkouts(
+        workouts.map((w) =>
+          w.id === workoutId
+            ? {
+                ...w,
+                exercises: w.exercises.map((e) =>
+                  e.id === exerciseId
+                    ? { ...e, sets: [...e.sets, newSet] }
+                    : e
+                ),
+              }
+            : w
+        )
       )
-    )
+    } catch (error) {
+      console.error('Error adding set:', error)
+    }
+  }
+
+  const deleteSet = async (
+    workoutId: string,
+    exerciseId: string,
+    setId: string
+  ) => {
+    try {
+      const { error } = await supabase.from('sets').delete().eq('id', setId)
+
+      if (error) throw error
+
+      setWorkouts(
+        workouts.map((w) =>
+          w.id === workoutId
+            ? {
+                ...w,
+                exercises: w.exercises.map((e) =>
+                  e.id === exerciseId
+                    ? { ...e, sets: e.sets.filter((s) => s.id !== setId) }
+                    : e
+                ),
+              }
+            : w
+        )
+      )
+    } catch (error) {
+      console.error('Error deleting set:', error)
+    }
   }
 
   const getWorkout = (id: string) => {
