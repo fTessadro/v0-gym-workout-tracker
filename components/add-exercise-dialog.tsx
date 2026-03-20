@@ -11,7 +11,30 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Plus, Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const PREDEFINED_EXERCISES = [
+  "Press de Banca",
+  "Sentadilla",
+  "Peso Muerto",
+  "Press Militar",
+  "Dominadas",
+  "Remo con Barra",
+  "Curl de Bíceps",
+  "Press Francés",
+  "Elevaciones Laterales",
+  "Prensa de Piernas",
+  "Curl Femoral"
+]
 
 interface AddExerciseDialogProps {
   onAddExercise: (name: string) => void
@@ -43,20 +66,56 @@ export function AddExerciseDialog({ onAddExercise }: AddExerciseDialogProps) {
           <DialogDescription>¿Cuál es el nombre del ejercicio?</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <Input
-            placeholder="Ej: Press de Banca"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleAdd()
-              }
-            }}
-            autoFocus
-          />
-          <Button onClick={handleAdd} className="w-full">
-            Agregar
-          </Button>
+          <Command className="rounded-lg border shadow-md">
+            <CommandInput 
+              placeholder="Buscar o crear ejercicio..." 
+              value={name} 
+              onValueChange={setName} 
+            />
+            <CommandList>
+              <CommandEmpty>
+                {name.trim() !== '' ? (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-sm"
+                    onClick={handleAdd}
+                  >
+                    Crear "{name}"
+                  </Button>
+                ) : (
+                  "No se encontraron ejercicios."
+                )}
+              </CommandEmpty>
+              <CommandGroup heading="Sugerencias">
+                {PREDEFINED_EXERCISES.map((exercise) => (
+                  <CommandItem
+                    key={exercise}
+                    value={exercise}
+                    onSelect={(currentValue) => {
+                      // current value from command is always lowercase, so we use the original
+                      onAddExercise(exercise)
+                      setName('')
+                      setOpen(false)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        name.toLowerCase() === exercise.toLowerCase() ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {exercise}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+          
+          {name.trim() !== '' && !PREDEFINED_EXERCISES.some(e => e.toLowerCase() === name.toLowerCase()) && (
+            <Button onClick={handleAdd} className="w-full">
+              Agregar "{name}"
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

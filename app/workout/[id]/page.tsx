@@ -10,7 +10,7 @@ import { ArrowLeft } from 'lucide-react'
 export default function WorkoutDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { getWorkout, addExercise, addSet, deleteSet, deleteExercise } = useWorkouts()
+  const { workouts, getWorkout, addExercise, addSet, deleteSet, deleteExercise } = useWorkouts()
 
   const workout = getWorkout(params.id as string)
 
@@ -32,6 +32,21 @@ export default function WorkoutDetailPage() {
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const getPreviousExerciseData = (exerciseName: string, currentWorkoutDate: string) => {
+    if (!workouts || workouts.length === 0) return null;
+    const olderWorkouts = workouts.filter(w => new Date(w.date) < new Date(currentWorkoutDate));
+    
+    for (const w of olderWorkouts) {
+      const prevExercise = w.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+      if (prevExercise && prevExercise.sets.length > 0) {
+        const maxWeightData = prevExercise.sets.reduce((max, set) => set.weight > max.weight ? set : max, prevExercise.sets[0]);
+        const setsWithMaxWeight = prevExercise.sets.filter(s => s.weight === maxWeightData.weight && s.reps === maxWeightData.reps);
+        return `${setsWithMaxWeight.length}x${maxWeightData.reps} con ${maxWeightData.weight}kg`;
+      }
+    }
+    return null;
   }
 
   return (
@@ -78,6 +93,7 @@ export default function WorkoutDetailPage() {
               <ExerciseCard
                 key={exercise.id}
                 exercise={exercise}
+                previousData={getPreviousExerciseData(exercise.name, workout.date)}
                 onAddSet={(reps, weight) => {
                   addSet(workout.id, exercise.id, reps, weight)
                 }}

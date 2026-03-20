@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Exercise } from '@/hooks/use-workouts'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, Info } from 'lucide-react'
 
 interface ExerciseCardProps {
   exercise: Exercise
+  previousData?: string | null
   onAddSet: (reps: number, weight: number) => void
   onDeleteSet: (setId: string) => void
   onDeleteExercise: () => void
@@ -16,6 +17,7 @@ interface ExerciseCardProps {
 
 export function ExerciseCard({
   exercise,
+  previousData,
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
@@ -76,6 +78,13 @@ export function ExerciseCard({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {previousData && (
+        <div className="mb-4 bg-primary/10 text-primary px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+          <Info className="w-4 h-4" />
+          <span>Última vez: <span className="font-semibold">{previousData}</span></span>
         </div>
       )}
 

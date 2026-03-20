@@ -170,9 +170,9 @@ export function useWorkouts() {
         workouts.map((w) =>
           w.id === workoutId
             ? {
-                ...w,
-                exercises: w.exercises.filter((e) => e.id !== exerciseId),
-              }
+              ...w,
+              exercises: w.exercises.filter((e) => e.id !== exerciseId),
+            }
             : w
         )
       )
@@ -205,13 +205,13 @@ export function useWorkouts() {
         workouts.map((w) =>
           w.id === workoutId
             ? {
-                ...w,
-                exercises: w.exercises.map((e) =>
-                  e.id === exerciseId
-                    ? { ...e, sets: [...e.sets, newSet] }
-                    : e
-                ),
-              }
+              ...w,
+              exercises: w.exercises.map((e) =>
+                e.id === exerciseId
+                  ? { ...e, sets: [...e.sets, newSet] }
+                  : e
+              ),
+            }
             : w
         )
       )
@@ -234,13 +234,13 @@ export function useWorkouts() {
         workouts.map((w) =>
           w.id === workoutId
             ? {
-                ...w,
-                exercises: w.exercises.map((e) =>
-                  e.id === exerciseId
-                    ? { ...e, sets: e.sets.filter((s) => s.id !== setId) }
-                    : e
-                ),
-              }
+              ...w,
+              exercises: w.exercises.map((e) =>
+                e.id === exerciseId
+                  ? { ...e, sets: e.sets.filter((s) => s.id !== setId) }
+                  : e
+              ),
+            }
             : w
         )
       )
@@ -253,6 +253,24 @@ export function useWorkouts() {
     return workouts.find((w) => w.id === id)
   }
 
+  const updateDeviceId = (newId: string) => {
+    if (!newId.trim()) return
+    localStorage.setItem('device-id', newId.trim())
+    setDeviceId(newId.trim())
+    setIsLoaded(false) // Trigger a loading state while the effect re-fetches
+  }
+
+  const exportData = () => {
+    if (workouts.length === 0) return
+    const dataStr = JSON.stringify(workouts, null, 2)
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
+    const exportFileDefaultName = `entrenamientos-backup-${new Date().toISOString().split('T')[0]}.json`
+    const linkElement = document.createElement('a')
+    linkElement.setAttribute('href', dataUri)
+    linkElement.setAttribute('download', exportFileDefaultName)
+    linkElement.click()
+  }
+
   return {
     workouts,
     isLoaded,
@@ -263,5 +281,8 @@ export function useWorkouts() {
     addSet,
     deleteSet,
     getWorkout,
+    deviceId,
+    updateDeviceId,
+    exportData,
   }
 }

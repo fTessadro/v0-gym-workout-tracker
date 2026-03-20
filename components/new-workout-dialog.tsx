@@ -43,6 +43,19 @@ export function NewWorkoutDialog({ onCreateWorkout }: NewWorkoutDialogProps) {
           <DialogDescription>¿Cómo se llamará este entrenamiento?</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {["Piernas", "Pecho y Tríceps", "Espalda y Bíceps", "Hombros", "Cuerpo Completo"].map((suggestion) => (
+              <Button
+                key={suggestion}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setName(suggestion)}
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
           <Input
             placeholder="Ej: Pecho y Tríceps"
             value={name}
