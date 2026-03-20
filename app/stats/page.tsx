@@ -32,7 +32,8 @@ export default function StatsPage() {
     const exercises = new Set<string>()
     workouts.forEach(w => {
       w.exercises.forEach(e => {
-        if (e.name.trim()) exercises.add(e.name.toLowerCase())
+        const trimmedName = e.name.trim().toLowerCase()
+        if (trimmedName) exercises.add(trimmedName)
       })
     })
     return Array.from(exercises).sort()
@@ -48,7 +49,7 @@ export default function StatsPage() {
     const sortedWorkouts = [...workouts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     sortedWorkouts.forEach(w => {
-      const exercise = w.exercises.find(e => e.name.toLowerCase() === selectedExercise)
+      const exercise = w.exercises.find(e => e.name.trim().toLowerCase() === selectedExercise)
       if (exercise && exercise.sets.length > 0) {
         // Find max weight in this session
         const maxWeight = Math.max(...exercise.sets.map(s => s.weight))
