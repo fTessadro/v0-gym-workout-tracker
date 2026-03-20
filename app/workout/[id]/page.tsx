@@ -71,6 +71,7 @@ export default function WorkoutDetailPage() {
         {/* Add Exercise Button */}
         <div className="mb-6">
           <AddExerciseDialog
+            workoutName={workout.name}
             onAddExercise={(name) => {
               addExercise(workout.id, name)
             }}

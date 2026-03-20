@@ -22,27 +22,47 @@ import {
 import { Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const PREDEFINED_EXERCISES = [
-  "Press de Banca",
-  "Sentadilla",
-  "Peso Muerto",
-  "Press Militar",
-  "Dominadas",
-  "Remo con Barra",
-  "Curl de Bíceps",
-  "Press Francés",
-  "Elevaciones Laterales",
-  "Prensa de Piernas",
-  "Curl Femoral"
-]
+const EXERCISE_CATEGORIES: Record<string, string[]> = {
+  pecho: ["Press de Banca", "Aperturas con Mancuernas", "Press Inclinado", "Cruces en Polea"],
+  espalda: ["Dominadas", "Convergente", "Jalón al Pecho", "Remo en Polea Baja", "Remo maquina"],
+  piernas: ["Pendular", "Prensa de Piernas", "Extensiones de Cuádriceps", "Curl Femoral", "Búlgaras", "Peso Muerto Rumano"],
+  hombros: ["Press Militar", "Elevaciones Laterales", "Pájaros", "Elevaciones Frontales"],
+  bíceps: ["Curl de Bíceps", "Curl Martillo", "Curl Predicador"],
+  biceps: ["Curl de Bíceps", "Curl Martillo", "Curl Predicador"], // sin tilde para simplificar match
+  tríceps: ["Press Francés", "Extensiones en Polea", "Fondos de Tríceps", "Katana"],
+  triceps: ["Press Francés", "Extensiones en Polea", "Fondos de Tríceps", "Katana"],
+  brazos: ["Curl de Bíceps", "Press Francés", "Curl Martillo", "Extensiones en Polea"],
+  abdominales: ["Crunch", "Plancha", "Elevación de Piernas"],
+  core: ["Crunch", "Plancha", "Elevación de Piernas"],
+}
+
+const ALL_EXERCISES = Array.from(new Set(Object.values(EXERCISE_CATEGORIES).flat()))
 
 interface AddExerciseDialogProps {
+  workoutName: string
   onAddExercise: (name: string) => void
 }
 
-export function AddExerciseDialog({ onAddExercise }: AddExerciseDialogProps) {
+export function AddExerciseDialog({ workoutName, onAddExercise }: AddExerciseDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
+
+  const getSuggestions = () => {
+    const nameLower = workoutName.toLowerCase()
+    const matchedCategories = Object.keys(EXERCISE_CATEGORIES).filter(cat => nameLower.includes(cat))
+
+    if (matchedCategories.length > 0) {
+      const suggestions = new Set<string>()
+      matchedCategories.forEach(cat => {
+        EXERCISE_CATEGORIES[cat].forEach(ex => suggestions.add(ex))
+      })
+      return Array.from(suggestions)
+    }
+
+    return ALL_EXERCISES
+  }
+
+  const suggestedExercises = getSuggestions()
 
   const handleAdd = () => {
     if (name.trim()) {
@@ -67,16 +87,16 @@ export function AddExerciseDialog({ onAddExercise }: AddExerciseDialogProps) {
         </DialogHeader>
         <div className="space-y-4">
           <Command className="rounded-lg border shadow-md">
-            <CommandInput 
-              placeholder="Buscar o crear ejercicio..." 
-              value={name} 
-              onValueChange={setName} 
+            <CommandInput
+              placeholder="Buscar o crear ejercicio..."
+              value={name}
+              onValueChange={setName}
             />
             <CommandList>
               <CommandEmpty>
                 {name.trim() !== '' ? (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     className="w-full justify-start text-sm"
                     onClick={handleAdd}
                   >
@@ -87,7 +107,7 @@ export function AddExerciseDialog({ onAddExercise }: AddExerciseDialogProps) {
                 )}
               </CommandEmpty>
               <CommandGroup heading="Sugerencias">
-                {PREDEFINED_EXERCISES.map((exercise) => (
+                {suggestedExercises.map((exercise) => (
                   <CommandItem
                     key={exercise}
                     value={exercise}
@@ -110,8 +130,8 @@ export function AddExerciseDialog({ onAddExercise }: AddExerciseDialogProps) {
               </CommandGroup>
             </CommandList>
           </Command>
-          
-          {name.trim() !== '' && !PREDEFINED_EXERCISES.some(e => e.toLowerCase() === name.toLowerCase()) && (
+
+          {name.trim() !== '' && !suggestedExercises.some(e => e.toLowerCase() === name.toLowerCase()) && (
             <Button onClick={handleAdd} className="w-full">
               Agregar "{name}"
             </Button>
