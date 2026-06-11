@@ -10,7 +10,18 @@ import { ArrowLeft } from 'lucide-react'
 export default function WorkoutDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { workouts, getWorkout, addExercise, addSet, deleteSet, deleteExercise } = useWorkouts()
+  const {
+    workouts,
+    getWorkout,
+    addExercise,
+    addSet,
+    deleteSet,
+    deleteExercise,
+    addingExerciseToWorkoutId,
+    deletingExerciseId,
+    addingSetToExerciseId,
+    deletingSetId,
+  } = useWorkouts()
 
   const workout = getWorkout(params.id as string)
 
@@ -37,7 +48,7 @@ export default function WorkoutDetailPage() {
   const getPreviousExerciseData = (exerciseName: string, currentWorkoutDate: string) => {
     if (!workouts || workouts.length === 0) return null;
     const olderWorkouts = workouts.filter(w => new Date(w.date) < new Date(currentWorkoutDate));
-    
+
     for (const w of olderWorkouts) {
       const prevExercise = w.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
       if (prevExercise && prevExercise.sets.length > 0) {
@@ -72,6 +83,7 @@ export default function WorkoutDetailPage() {
         <div className="mb-6">
           <AddExerciseDialog
             workoutName={workout.name}
+            isLoading={addingExerciseToWorkoutId === workout.id}
             onAddExercise={(name) => {
               addExercise(workout.id, name)
             }}
@@ -95,6 +107,9 @@ export default function WorkoutDetailPage() {
                 key={exercise.id}
                 exercise={exercise}
                 previousData={getPreviousExerciseData(exercise.name, workout.date)}
+                isAddingSet={addingSetToExerciseId === exercise.id}
+                deletingSetId={deletingSetId}
+                isDeletingExercise={deletingExerciseId === exercise.id}
                 onAddSet={(reps, weight) => {
                   addSet(workout.id, exercise.id, reps, weight)
                 }}

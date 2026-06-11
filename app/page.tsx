@@ -6,10 +6,10 @@ import { NewWorkoutDialog } from '@/components/new-workout-dialog'
 import { SettingsDialog } from '@/components/settings-dialog'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { BarChart2 } from 'lucide-react'
+import { BarChart2, CalendarDays } from 'lucide-react'
 
 export default function Home() {
-  const { workouts, isLoaded, createWorkout, deleteWorkout } = useWorkouts()
+  const { workouts, isLoaded, createWorkout, deleteWorkout, isCreatingWorkout, deletingWorkoutId } = useWorkouts()
 
   if (!isLoaded) {
     return (
@@ -35,12 +35,18 @@ export default function Home() {
         {/* Actions */}
         <div className="mb-8 flex gap-3">
           <div className="flex-1">
-            <NewWorkoutDialog
+          <NewWorkoutDialog
+              isLoading={isCreatingWorkout}
               onCreateWorkout={(name) => {
                 createWorkout(name)
               }}
             />
           </div>
+          <Button variant="outline" size="lg" asChild className="px-3">
+            <Link href="/calendar">
+              <CalendarDays className="w-5 h-5" />
+            </Link>
+          </Button>
           <Button variant="outline" size="lg" asChild className="px-3">
             <Link href="/stats">
               <BarChart2 className="w-5 h-5" />
@@ -49,7 +55,7 @@ export default function Home() {
         </div>
 
         {/* Workouts List */}
-        <WorkoutList workouts={workouts} onDelete={deleteWorkout} />
+        <WorkoutList workouts={workouts} onDelete={deleteWorkout} deletingWorkoutId={deletingWorkoutId} />
       </div>
     </main>
   )

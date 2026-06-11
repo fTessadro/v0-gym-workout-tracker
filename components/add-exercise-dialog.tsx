@@ -19,7 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { Plus, Check } from 'lucide-react'
+import { Plus, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const EXERCISE_CATEGORIES: Record<string, string[]> = {
@@ -40,10 +40,11 @@ const ALL_EXERCISES = Array.from(new Set(Object.values(EXERCISE_CATEGORIES).flat
 
 interface AddExerciseDialogProps {
   workoutName: string
+  isLoading?: boolean
   onAddExercise: (name: string) => void
 }
 
-export function AddExerciseDialog({ workoutName, onAddExercise }: AddExerciseDialogProps) {
+export function AddExerciseDialog({ workoutName, isLoading = false, onAddExercise }: AddExerciseDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
 
@@ -75,9 +76,13 @@ export function AddExerciseDialog({ workoutName, onAddExercise }: AddExerciseDia
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar Ejercicio
+        <Button variant="outline" className="w-full" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4 mr-2" />
+          )}
+          {isLoading ? 'Agregando...' : 'Agregar Ejercicio'}
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[90vw] max-w-sm">

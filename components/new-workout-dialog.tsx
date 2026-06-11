@@ -11,13 +11,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 
 interface NewWorkoutDialogProps {
   onCreateWorkout: (name: string) => void
+  isLoading?: boolean
 }
 
-export function NewWorkoutDialog({ onCreateWorkout }: NewWorkoutDialogProps) {
+export function NewWorkoutDialog({ onCreateWorkout, isLoading = false }: NewWorkoutDialogProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
 
@@ -32,9 +33,13 @@ export function NewWorkoutDialog({ onCreateWorkout }: NewWorkoutDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full" size="lg">
-          <Plus className="w-5 h-5 mr-2" />
-          Nuevo Entrenamiento
+        <Button className="w-full" size="lg" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          ) : (
+            <Plus className="w-5 h-5 mr-2" />
+          )}
+          {isLoading ? 'Creando...' : 'Nuevo Entrenamiento'}
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[90vw] max-w-sm">
@@ -67,7 +72,8 @@ export function NewWorkoutDialog({ onCreateWorkout }: NewWorkoutDialogProps) {
             }}
             autoFocus
           />
-          <Button onClick={handleCreate} className="w-full">
+          <Button onClick={handleCreate} className="w-full" disabled={isLoading}>
+            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Crear
           </Button>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 export interface Set {
   id: string
@@ -26,6 +27,15 @@ export function useWorkouts() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [deviceId, setDeviceId] = useState<string>('')
+
+  // Granular loading states
+  const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
+  const [deletingWorkoutId, setDeletingWorkoutId] = useState<string | null>(null)
+  const [addingExerciseToWorkoutId, setAddingExerciseToWorkoutId] = useState<string | null>(null)
+  const [deletingExerciseId, setDeletingExerciseId] = useState<string | null>(null)
+  const [addingSetToExerciseId, setAddingSetToExerciseId] = useState<string | null>(null)
+  const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
+
   const supabase = createClient()
 
   // Initialize device ID from localStorage
@@ -81,17 +91,19 @@ export function useWorkouts() {
         setWorkouts(formattedWorkouts)
       } catch (error) {
         console.error('Error fetching workouts:', error)
+        toast.error('No se pudieron cargar los entrenamientos. Revisá tu conexión.')
       } finally {
         setIsLoaded(true)
       }
     }
 
     fetchWorkouts()
-  }, [deviceId, supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId])
 
   const createWorkout = async (name: string) => {
     if (!deviceId) return
-
+    setIsCreatingWorkout(true)
     try {
       const { data, error } = await supabase
         .from('workouts')
@@ -108,21 +120,30 @@ export function useWorkouts() {
       }
 
       setWorkouts([newWorkout, ...workouts])
+      toast.success(`¡Entrenamiento "${name}" creado!`)
       return newWorkout
     } catch (error) {
       console.error('Error creating workout:', error)
+      toast.error('No se pudo crear el entrenamiento. Intentá de nuevo.')
+    } finally {
+      setIsCreatingWorkout(false)
     }
   }
 
   const deleteWorkout = async (id: string) => {
+    setDeletingWorkoutId(id)
     try {
       const { error } = await supabase.from('workouts').delete().eq('id', id)
 
       if (error) throw error
 
       setWorkouts(workouts.filter((w) => w.id !== id))
+      toast.success('Entrenamiento eliminado.')
     } catch (error) {
       console.error('Error deleting workout:', error)
+      toast.error('No se pudo eliminar el entrenamiento. Intentá de nuevo.')
+    } finally {
+      setDeletingWorkoutId(null)
     }
   }
 
@@ -130,6 +151,7 @@ export function useWorkouts() {
     workoutId: string,
     exerciseName: string
   ): Promise<Exercise | undefined> => {
+    setAddingExerciseToWorkoutId(workoutId)
     try {
       const { data, error } = await supabase
         .from('exercises')
@@ -151,13 +173,18 @@ export function useWorkouts() {
             : w
         )
       )
+      toast.success(`Ejercicio "${exerciseName}" agregado.`)
       return newExercise
     } catch (error) {
       console.error('Error adding exercise:', error)
+      toast.error('No se pudo agregar el ejercicio. Intentá de nuevo.')
+    } finally {
+      setAddingExerciseToWorkoutId(null)
     }
   }
 
   const deleteExercise = async (workoutId: string, exerciseId: string) => {
+    setDeletingExerciseId(exerciseId)
     try {
       const { error } = await supabase
         .from('exercises')
@@ -178,6 +205,9 @@ export function useWorkouts() {
       )
     } catch (error) {
       console.error('Error deleting exercise:', error)
+      toast.error('No se pudo eliminar el ejercicio. Intentá de nuevo.')
+    } finally {
+      setDeletingExerciseId(null)
     }
   }
 
@@ -187,6 +217,7 @@ export function useWorkouts() {
     reps: number,
     weight: number
   ) => {
+    setAddingSetToExerciseId(exerciseId)
     try {
       const { data, error } = await supabase
         .from('sets')
@@ -217,6 +248,9 @@ export function useWorkouts() {
       )
     } catch (error) {
       console.error('Error adding set:', error)
+      toast.error('No se pudo guardar la serie. Intentá de nuevo.')
+    } finally {
+      setAddingSetToExerciseId(null)
     }
   }
 
@@ -225,6 +259,7 @@ export function useWorkouts() {
     exerciseId: string,
     setId: string
   ) => {
+    setDeletingSetId(setId)
     try {
       const { error } = await supabase.from('sets').delete().eq('id', setId)
 
@@ -246,6 +281,9 @@ export function useWorkouts() {
       )
     } catch (error) {
       console.error('Error deleting set:', error)
+      toast.error('No se pudo eliminar la serie. Intentá de nuevo.')
+    } finally {
+      setDeletingSetId(null)
     }
   }
 
@@ -257,11 +295,14 @@ export function useWorkouts() {
     if (!newId.trim()) return
     localStorage.setItem('device-id', newId.trim())
     setDeviceId(newId.trim())
-    setIsLoaded(false) // Trigger a loading state while the effect re-fetches
+    setIsLoaded(false)
   }
 
   const exportData = () => {
-    if (workouts.length === 0) return
+    if (workouts.length === 0) {
+      toast.error('No hay entrenamientos para exportar.')
+      return
+    }
     const dataStr = JSON.stringify(workouts, null, 2)
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
     const exportFileDefaultName = `entrenamientos-backup-${new Date().toISOString().split('T')[0]}.json`
@@ -269,6 +310,7 @@ export function useWorkouts() {
     linkElement.setAttribute('href', dataUri)
     linkElement.setAttribute('download', exportFileDefaultName)
     linkElement.click()
+    toast.success('Backup exportado correctamente.')
   }
 
   return {
@@ -284,5 +326,12 @@ export function useWorkouts() {
     deviceId,
     updateDeviceId,
     exportData,
+    // Granular loading states
+    isCreatingWorkout,
+    deletingWorkoutId,
+    addingExerciseToWorkoutId,
+    deletingExerciseId,
+    addingSetToExerciseId,
+    deletingSetId,
   }
 }

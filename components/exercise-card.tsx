@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Exercise } from '@/hooks/use-workouts'
-import { Trash2, Plus, Info } from 'lucide-react'
+import { Trash2, Plus, Info, Loader2 } from 'lucide-react'
 
 interface ExerciseCardProps {
   exercise: Exercise
   previousData?: string | null
+  isAddingSet?: boolean
+  deletingSetId?: string | null
+  isDeletingExercise?: boolean
   onAddSet: (reps: number, weight: number) => void
   onDeleteSet: (setId: string) => void
   onDeleteExercise: () => void
@@ -18,6 +21,9 @@ interface ExerciseCardProps {
 export function ExerciseCard({
   exercise,
   previousData,
+  isAddingSet = false,
+  deletingSetId,
+  isDeletingExercise = false,
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
@@ -46,8 +52,13 @@ export function ExerciseCard({
           size="sm"
           className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
           onClick={onDeleteExercise}
+          disabled={isDeletingExercise}
         >
-          <Trash2 className="w-4 h-4" />
+          {isDeletingExercise ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
         </Button>
       </div>
 
@@ -56,27 +67,35 @@ export function ExerciseCard({
         <div className="space-y-2 mb-4">
           <p className="text-sm text-muted-foreground font-medium">Series ({exercise.sets.length}):</p>
           <div className="space-y-2">
-            {exercise.sets.map((set, index) => (
-              <div
-                key={set.id}
-                className="flex items-center justify-between bg-muted/50 border border-border p-3 rounded-lg"
-              >
-                <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-semibold text-primary">S{index + 1}:</span>{' '}
-                    <span className="font-medium">{set.reps}x{set.weight}kg</span>
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 ml-2"
-                  onClick={() => onDeleteSet(set.id)}
+            {exercise.sets.map((set, index) => {
+              const isSetDeleting = deletingSetId === set.id
+              return (
+                <div
+                  key={set.id}
+                  className="flex items-center justify-between bg-muted/50 border border-border p-3 rounded-lg"
                 >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <p className="text-sm">
+                      <span className="font-semibold text-primary">S{index + 1}:</span>{' '}
+                      <span className="font-medium">{set.reps}x{set.weight}kg</span>
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 ml-2"
+                    onClick={() => onDeleteSet(set.id)}
+                    disabled={isSetDeleting}
+                  >
+                    {isSetDeleting ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -94,6 +113,7 @@ export function ExerciseCard({
           variant="outline"
           className="w-full"
           onClick={() => setShowForm(true)}
+          disabled={isAddingSet}
         >
           <Plus className="w-4 h-4 mr-2" />
           Nueva Serie
@@ -111,6 +131,7 @@ export function ExerciseCard({
                 min="1"
                 className="w-full"
                 autoFocus
+                disabled={isAddingSet}
               />
             </div>
             <div className="flex-1">
@@ -123,6 +144,7 @@ export function ExerciseCard({
                 min="0"
                 step="0.5"
                 className="w-full"
+                disabled={isAddingSet}
               />
             </div>
           </div>
@@ -130,9 +152,12 @@ export function ExerciseCard({
             <Button
               className="flex-1"
               onClick={handleAddSet}
-              disabled={!reps || !weight}
+              disabled={!reps || !weight || isAddingSet}
             >
-              Guardar
+              {isAddingSet ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {isAddingSet ? 'Guardando...' : 'Guardar'}
             </Button>
             <Button
               variant="outline"
@@ -142,6 +167,7 @@ export function ExerciseCard({
                 setReps('')
                 setWeight('')
               }}
+              disabled={isAddingSet}
             >
               Cancelar
             </Button>

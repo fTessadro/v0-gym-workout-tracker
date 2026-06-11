@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Workout } from '@/hooks/use-workouts'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Loader2 } from 'lucide-react'
 
 interface WorkoutListProps {
   workouts: Workout[]
   onDelete: (id: string) => void
+  deletingWorkoutId?: string | null
 }
 
-export function WorkoutList({ workouts, onDelete }: WorkoutListProps) {
+export function WorkoutList({ workouts, onDelete, deletingWorkoutId }: WorkoutListProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('es-ES', {
@@ -44,7 +45,8 @@ export function WorkoutList({ workouts, onDelete }: WorkoutListProps) {
     <div className="space-y-3 pb-4">
       {workouts.map((workout) => {
         const totalSets = workout.exercises.reduce((acc, ex) => acc + ex.sets.length, 0)
-        
+        const isDeleting = deletingWorkoutId === workout.id
+
         return (
           <Card key={workout.id} className="p-0 overflow-hidden">
             <Link href={`/workout/${workout.id}`} className="block">
@@ -70,14 +72,19 @@ export function WorkoutList({ workouts, onDelete }: WorkoutListProps) {
                 variant="ghost"
                 size="sm"
                 className="w-full text-destructive hover:bg-destructive/10"
+                disabled={isDeleting}
                 onClick={() => {
                   if (confirm('¿Eliminar este entrenamiento?')) {
                     onDelete(workout.id)
                   }
                 }}
               >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
               </Button>
             </div>
           </Card>
