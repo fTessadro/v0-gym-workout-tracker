@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Exercise } from '@/hooks/use-workouts'
-import { Trash2, Plus, Info, Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Exercise, Set } from '@/hooks/use-workouts'
+import { Trash2, Plus, Info, Loader2, Trophy } from 'lucide-react'
 
 interface ExerciseCardProps {
   exercise: Exercise
@@ -13,6 +14,7 @@ interface ExerciseCardProps {
   isAddingSet?: boolean
   deletingSetId?: string | null
   isDeletingExercise?: boolean
+  isPRSet?: (set: Set) => boolean
   onAddSet: (reps: number, weight: number) => void
   onDeleteSet: (setId: string) => void
   onDeleteExercise: () => void
@@ -24,6 +26,7 @@ export function ExerciseCard({
   isAddingSet = false,
   deletingSetId,
   isDeletingExercise = false,
+  isPRSet,
   onAddSet,
   onDeleteSet,
   onDeleteExercise,
@@ -69,16 +72,23 @@ export function ExerciseCard({
           <div className="space-y-2">
             {exercise.sets.map((set, index) => {
               const isSetDeleting = deletingSetId === set.id
+              const isPR = isPRSet ? isPRSet(set) : false
               return (
                 <div
                   key={set.id}
                   className="flex items-center justify-between bg-muted/50 border border-border p-3 rounded-lg"
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 flex items-center gap-2">
                     <p className="text-sm">
                       <span className="font-semibold text-primary">S{index + 1}:</span>{' '}
                       <span className="font-medium">{set.reps}x{set.weight}kg</span>
                     </p>
+                    {isPR && (
+                      <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-yellow-500 hover:bg-yellow-500 text-yellow-950">
+                        <Trophy className="w-2.5 h-2.5 mr-0.5" />
+                        PR
+                      </Badge>
+                    )}
                   </div>
                   <Button
                     variant="ghost"

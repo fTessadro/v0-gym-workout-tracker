@@ -4,15 +4,27 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Workout } from '@/hooks/use-workouts'
-import { Trash2, Loader2 } from 'lucide-react'
+import { Trash2, Copy, BookmarkPlus, Loader2, StickyNote } from 'lucide-react'
 
 interface WorkoutListProps {
   workouts: Workout[]
   onDelete: (id: string) => void
+  onDuplicate: (id: string) => void
+  onSaveAsTemplate: (id: string) => void
   deletingWorkoutId?: string | null
+  duplicatingWorkoutId?: string | null
+  savingTemplateFromWorkoutId?: string | null
 }
 
-export function WorkoutList({ workouts, onDelete, deletingWorkoutId }: WorkoutListProps) {
+export function WorkoutList({
+  workouts,
+  onDelete,
+  onDuplicate,
+  onSaveAsTemplate,
+  deletingWorkoutId,
+  duplicatingWorkoutId,
+  savingTemplateFromWorkoutId,
+}: WorkoutListProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('es-ES', {
@@ -46,12 +58,20 @@ export function WorkoutList({ workouts, onDelete, deletingWorkoutId }: WorkoutLi
       {workouts.map((workout) => {
         const totalSets = workout.exercises.reduce((acc, ex) => acc + ex.sets.length, 0)
         const isDeleting = deletingWorkoutId === workout.id
+        const isDuplicating = duplicatingWorkoutId === workout.id
+        const isSavingTemplate = savingTemplateFromWorkoutId === workout.id
+        const hasNotes = workout.notes && workout.notes.trim().length > 0
 
         return (
           <Card key={workout.id} className="p-0 overflow-hidden">
             <Link href={`/workout/${workout.id}`} className="block">
               <div className="p-4 hover:bg-accent transition-colors cursor-pointer">
-                <h3 className="font-semibold text-lg">{workout.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg">{workout.name}</h3>
+                  {hasNotes && (
+                    <StickyNote className="w-4 h-4 text-muted-foreground" aria-label="Tiene notas" />
+                  )}
+                </div>
                 <div className="flex items-center justify-between text-sm text-muted-foreground mt-3">
                   <span>
                     {formatDate(workout.date)} • {formatTime(workout.date)}
@@ -67,11 +87,39 @@ export function WorkoutList({ workouts, onDelete, deletingWorkoutId }: WorkoutLi
                 </div>
               </div>
             </Link>
-            <div className="border-t px-4 py-2">
+            <div className="border-t grid grid-cols-3">
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full text-destructive hover:bg-destructive/10"
+                className="rounded-none text-muted-foreground hover:bg-muted"
+                disabled={isDuplicating}
+                onClick={() => onDuplicate(workout.id)}
+              >
+                {isDuplicating ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-1" />
+                )}
+                <span className="text-xs">Duplicar</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-none text-muted-foreground hover:bg-muted border-l"
+                disabled={isSavingTemplate}
+                onClick={() => onSaveAsTemplate(workout.id)}
+              >
+                {isSavingTemplate ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <BookmarkPlus className="w-4 h-4 mr-1" />
+                )}
+                <span className="text-xs">Plantilla</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-none text-destructive hover:bg-destructive/10 border-l"
                 disabled={isDeleting}
                 onClick={() => {
                   if (confirm('¿Eliminar este entrenamiento?')) {
@@ -80,11 +128,11 @@ export function WorkoutList({ workouts, onDelete, deletingWorkoutId }: WorkoutLi
                 }}
               >
                 {isDeleting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                 ) : (
-                  <Trash2 className="w-4 h-4 mr-2" />
+                  <Trash2 className="w-4 h-4 mr-1" />
                 )}
-                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                <span className="text-xs">Eliminar</span>
               </Button>
             </div>
           </Card>

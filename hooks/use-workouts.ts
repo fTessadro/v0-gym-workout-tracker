@@ -20,21 +20,32 @@ export interface Workout {
   id: string
   name: string
   date: string
+  notes: string
   exercises: Exercise[]
+}
+
+export interface Template {
+  id: string
+  name: string
+  exercises: { id: string; name: string }[]
 }
 
 export function useWorkouts() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [deviceId, setDeviceId] = useState<string>('')
 
   // Granular loading states
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
   const [deletingWorkoutId, setDeletingWorkoutId] = useState<string | null>(null)
+  const [duplicatingWorkoutId, setDuplicatingWorkoutId] = useState<string | null>(null)
   const [addingExerciseToWorkoutId, setAddingExerciseToWorkoutId] = useState<string | null>(null)
   const [deletingExerciseId, setDeletingExerciseId] = useState<string | null>(null)
   const [addingSetToExerciseId, setAddingSetToExerciseId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
+  const [savingTemplateFromWorkoutId, setSavingTemplateFromWorkoutId] = useState<string | null>(null)
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -48,39 +59,59 @@ export function useWorkouts() {
     setDeviceId(id)
   }, [])
 
-  // Fetch workouts from Supabase
+  // Fetch workouts and templates from Supabase
   useEffect(() => {
     if (!deviceId) return
 
-    const fetchWorkouts = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
-          .from('workouts')
-          .select(
-            `
-            id,
-            name,
-            created_at,
-            exercises (
+        const [workoutsRes, templatesRes] = await Promise.all([
+          supabase
+            .from('workouts')
+            .select(
+              `
               id,
               name,
-              sets (
+              notes,
+              created_at,
+              exercises (
                 id,
-                reps,
-                weight
+                name,
+                sets (
+                  id,
+                  reps,
+                  weight
+                )
               )
+            `
             )
-          `
-          )
-          .eq('device_id', deviceId)
-          .order('created_at', { ascending: false })
+            .eq('device_id', deviceId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('templates')
+            .select(
+              `
+              id,
+              name,
+              created_at,
+              template_exercises (
+                id,
+                name
+              )
+            `
+            )
+            .eq('device_id', deviceId)
+            .order('created_at', { ascending: false }),
+        ])
 
-        if (error) throw error
+        if (workoutsRes.error) throw workoutsRes.error
+        if (templatesRes.error) throw templatesRes.error
 
-        const formattedWorkouts = (data || []).map((w: any) => ({
+        const formattedWorkouts = (workoutsRes.data || []).map((w: any) => ({
           id: w.id,
           name: w.name,
           date: w.created_at,
+          notes: w.notes || '',
           exercises: (w.exercises || []).map((e: any) => ({
             id: e.id,
             name: e.name,
@@ -88,16 +119,26 @@ export function useWorkouts() {
           })),
         }))
 
+        const formattedTemplates: Template[] = (templatesRes.data || []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          exercises: (t.template_exercises || []).map((e: any) => ({
+            id: e.id,
+            name: e.name,
+          })),
+        }))
+
         setWorkouts(formattedWorkouts)
+        setTemplates(formattedTemplates)
       } catch (error) {
-        console.error('Error fetching workouts:', error)
-        toast.error('No se pudieron cargar los entrenamientos. Revisá tu conexión.')
+        console.error('Error fetching data:', error)
+        toast.error('No se pudieron cargar los datos. Revisá tu conexión.')
       } finally {
         setIsLoaded(true)
       }
     }
 
-    fetchWorkouts()
+    fetchData()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId])
 
@@ -107,7 +148,7 @@ export function useWorkouts() {
     try {
       const { data, error } = await supabase
         .from('workouts')
-        .insert([{ name, device_id: deviceId }])
+        .insert([{ name, device_id: deviceId, notes: '' }])
         .select()
 
       if (error) throw error
@@ -116,6 +157,7 @@ export function useWorkouts() {
         id: data[0].id,
         name: data[0].name,
         date: data[0].created_at,
+        notes: data[0].notes || '',
         exercises: [],
       }
 
@@ -144,6 +186,55 @@ export function useWorkouts() {
       toast.error('No se pudo eliminar el entrenamiento. Intentá de nuevo.')
     } finally {
       setDeletingWorkoutId(null)
+    }
+  }
+
+  const duplicateWorkout = async (id: string): Promise<Workout | undefined> => {
+    setDuplicatingWorkoutId(id)
+    try {
+      const source = workouts.find((w) => w.id === id)
+      if (!source) {
+        toast.error('No se encontró el entrenamiento a duplicar.')
+        return
+      }
+
+      const { data: workoutData, error: workoutError } = await supabase
+        .from('workouts')
+        .insert([{ name: `${source.name} (copia)`, device_id: deviceId, notes: '' }])
+        .select()
+
+      if (workoutError) throw workoutError
+      const newWorkoutId = workoutData[0].id
+
+      if (source.exercises.length > 0) {
+        const exercisesToInsert = source.exercises.map((ex) => ({
+          name: ex.name,
+          workout_id: newWorkoutId,
+        }))
+        const { error: exercisesError } = await supabase
+          .from('exercises')
+          .insert(exercisesToInsert)
+
+        if (exercisesError) throw exercisesError
+      }
+
+      const newWorkout: Workout = {
+        id: newWorkoutId,
+        name: workoutData[0].name,
+        date: workoutData[0].created_at,
+        notes: '',
+        exercises: source.exercises.map((ex) => ({ id: crypto.randomUUID(), name: ex.name, sets: [] })),
+      }
+
+      setWorkouts([newWorkout, ...workouts])
+      toast.success(`Entrenamiento "${source.name}" duplicado.`)
+      return newWorkout
+    } catch (error) {
+      console.error('Error duplicating workout:', error)
+      toast.error('No se pudo duplicar el entrenamiento. Intentá de nuevo.')
+      return
+    } finally {
+      setDuplicatingWorkoutId(null)
     }
   }
 
@@ -291,6 +382,22 @@ export function useWorkouts() {
     return workouts.find((w) => w.id === id)
   }
 
+  const updateWorkoutNotes = async (id: string, notes: string) => {
+    try {
+      const { error } = await supabase
+        .from('workouts')
+        .update({ notes })
+        .eq('id', id)
+
+      if (error) throw error
+
+      setWorkouts(workouts.map((w) => (w.id === id ? { ...w, notes } : w)))
+    } catch (error) {
+      console.error('Error updating notes:', error)
+      toast.error('No se pudieron guardar las notas.')
+    }
+  }
+
   const updateDeviceId = (newId: string) => {
     if (!newId.trim()) return
     localStorage.setItem('device-id', newId.trim())
@@ -313,11 +420,127 @@ export function useWorkouts() {
     toast.success('Backup exportado correctamente.')
   }
 
+  const saveAsTemplate = async (workoutId: string, templateName?: string): Promise<Template | undefined> => {
+    setSavingTemplateFromWorkoutId(workoutId)
+    try {
+      const source = workouts.find((w) => w.id === workoutId)
+      if (!source) {
+        toast.error('No se encontró el entrenamiento.')
+        return
+      }
+      if (source.exercises.length === 0) {
+        toast.error('El entrenamiento no tiene ejercicios para guardar como plantilla.')
+        return
+      }
+
+      const name = (templateName || source.name).trim()
+      const { data: templateData, error: templateError } = await supabase
+        .from('templates')
+        .insert([{ name, device_id: deviceId }])
+        .select()
+
+      if (templateError) throw templateError
+      const templateId = templateData[0].id
+
+      const exercisesToInsert = source.exercises.map((ex) => ({
+        name: ex.name,
+        template_id: templateId,
+      }))
+      const { error: exError } = await supabase
+        .from('template_exercises')
+        .insert(exercisesToInsert)
+
+      if (exError) throw exError
+
+      const newTemplate: Template = {
+        id: templateId,
+        name,
+        exercises: source.exercises.map((ex) => ({ id: crypto.randomUUID(), name: ex.name })),
+      }
+
+      setTemplates([newTemplate, ...templates])
+      toast.success(`Plantilla "${name}" guardada.`)
+      return newTemplate
+    } catch (error) {
+      console.error('Error saving template:', error)
+      toast.error('No se pudo guardar la plantilla. Intentá de nuevo.')
+      return
+    } finally {
+      setSavingTemplateFromWorkoutId(null)
+    }
+  }
+
+  const deleteTemplate = async (id: string) => {
+    setDeletingTemplateId(id)
+    try {
+      const { error } = await supabase.from('templates').delete().eq('id', id)
+      if (error) throw error
+
+      setTemplates(templates.filter((t) => t.id !== id))
+      toast.success('Plantilla eliminada.')
+    } catch (error) {
+      console.error('Error deleting template:', error)
+      toast.error('No se pudo eliminar la plantilla.')
+    } finally {
+      setDeletingTemplateId(null)
+    }
+  }
+
+  const createWorkoutFromTemplate = async (templateId: string): Promise<Workout | undefined> => {
+    setIsCreatingWorkout(true)
+    try {
+      const template = templates.find((t) => t.id === templateId)
+      if (!template) {
+        toast.error('Plantilla no encontrada.')
+        return
+      }
+
+      const { data: workoutData, error: workoutError } = await supabase
+        .from('workouts')
+        .insert([{ name: template.name, device_id: deviceId, notes: '' }])
+        .select()
+
+      if (workoutError) throw workoutError
+      const newWorkoutId = workoutData[0].id
+
+      if (template.exercises.length > 0) {
+        const exercisesToInsert = template.exercises.map((ex) => ({
+          name: ex.name,
+          workout_id: newWorkoutId,
+        }))
+        const { error: exError } = await supabase
+          .from('exercises')
+          .insert(exercisesToInsert)
+        if (exError) throw exError
+      }
+
+      const newWorkout: Workout = {
+        id: newWorkoutId,
+        name: workoutData[0].name,
+        date: workoutData[0].created_at,
+        notes: workoutData[0].notes || '',
+        exercises: template.exercises.map((ex) => ({ id: crypto.randomUUID(), name: ex.name, sets: [] })),
+      }
+
+      setWorkouts([newWorkout, ...workouts])
+      toast.success(`Entrenamiento "${template.name}" creado desde plantilla.`)
+      return newWorkout
+    } catch (error) {
+      console.error('Error creating workout from template:', error)
+      toast.error('No se pudo crear el entrenamiento desde la plantilla.')
+      return
+    } finally {
+      setIsCreatingWorkout(false)
+    }
+  }
+
   return {
     workouts,
+    templates,
     isLoaded,
     createWorkout,
     deleteWorkout,
+    duplicateWorkout,
     addExercise,
     deleteExercise,
     addSet,
@@ -325,13 +548,20 @@ export function useWorkouts() {
     getWorkout,
     deviceId,
     updateDeviceId,
+    updateWorkoutNotes,
     exportData,
+    saveAsTemplate,
+    deleteTemplate,
+    createWorkoutFromTemplate,
     // Granular loading states
     isCreatingWorkout,
     deletingWorkoutId,
+    duplicatingWorkoutId,
     addingExerciseToWorkoutId,
     deletingExerciseId,
     addingSetToExerciseId,
     deletingSetId,
+    savingTemplateFromWorkoutId,
+    deletingTemplateId,
   }
 }

@@ -21,20 +21,7 @@ import {
 } from '@/components/ui/command'
 import { Plus, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const EXERCISE_CATEGORIES: Record<string, string[]> = {
-  pecho: ["Press de Banca", "Aperturas con Mancuernas", "Press Inclinado", "Cruces en Polea"],
-  espalda: ["Dominadas", "Convergente", "Jalón al Pecho", "Remo en Polea Baja", "Remo maquina"],
-  piernas: ["Pendular", "Prensa de Piernas", "Extensiones de Cuádriceps", "Curl Femoral", "Búlgaras", "Peso Muerto Rumano"],
-  hombros: ["Press Militar", "Elevaciones Laterales", "Pájaros", "Elevaciones Frontales", "Curl de Bíceps", "Katana"],
-  bíceps: ["Curl de Bíceps", "Curl Martillo", "Curl Predicador"],
-  biceps: ["Curl de Bíceps", "Curl Martillo", "Curl Predicador"], // sin tilde para simplificar match
-  tríceps: ["Press Francés", "Extensiones en Polea", "Fondos de Tríceps", "Katana"],
-  triceps: ["Press Francés", "Extensiones en Polea", "Fondos de Tríceps", "Katana"],
-  brazos: ["Curl de Bíceps", "Press Francés", "Curl Martillo", "Extensiones en Polea"],
-  abdominales: ["Crunch", "Plancha", "Elevación de Piernas"],
-  core: ["Crunch", "Plancha", "Elevación de Piernas"],
-}
+import { EXERCISE_CATEGORIES } from '@/lib/exercises'
 
 const ALL_EXERCISES = Array.from(new Set(Object.values(EXERCISE_CATEGORIES).flat()))
 

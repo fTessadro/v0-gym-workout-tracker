@@ -4,8 +4,11 @@ import { useParams, useRouter } from 'next/navigation'
 import { useWorkouts } from '@/hooks/use-workouts'
 import { AddExerciseDialog } from '@/components/add-exercise-dialog'
 import { ExerciseCard } from '@/components/exercise-card'
+import { WorkoutNotes } from '@/components/workout-notes'
+import { SessionSummary } from '@/components/session-summary'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { isSetPR } from '@/lib/analytics'
 
 export default function WorkoutDetailPage() {
   const params = useParams()
@@ -17,6 +20,7 @@ export default function WorkoutDetailPage() {
     addSet,
     deleteSet,
     deleteExercise,
+    updateWorkoutNotes,
     addingExerciseToWorkoutId,
     deletingExerciseId,
     addingSetToExerciseId,
@@ -90,6 +94,17 @@ export default function WorkoutDetailPage() {
           />
         </div>
 
+        {/* Session Summary */}
+        <SessionSummary workout={workout} allWorkouts={workouts} />
+
+        {/* Notes */}
+        <div className="mb-6">
+          <WorkoutNotes
+            notes={workout.notes}
+            onSave={(notes) => updateWorkoutNotes(workout.id, notes)}
+          />
+        </div>
+
         {/* Exercises List */}
         {workout.exercises.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -110,6 +125,7 @@ export default function WorkoutDetailPage() {
                 isAddingSet={addingSetToExerciseId === exercise.id}
                 deletingSetId={deletingSetId}
                 isDeletingExercise={deletingExerciseId === exercise.id}
+                isPRSet={(set) => isSetPR(set, exercise.name, workouts, workout.id)}
                 onAddSet={(reps, weight) => {
                   addSet(workout.id, exercise.id, reps, weight)
                 }}
