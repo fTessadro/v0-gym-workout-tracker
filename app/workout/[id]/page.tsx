@@ -9,6 +9,7 @@ import { SessionSummary } from '@/components/session-summary'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { isSetPR } from '@/lib/analytics'
+import { normalizeKey } from '@/lib/exercises'
 
 export default function WorkoutDetailPage() {
   const params = useParams()
@@ -17,6 +18,8 @@ export default function WorkoutDetailPage() {
     workouts,
     getWorkout,
     addExercise,
+    customExercises,
+    createCustomExercise,
     addSet,
     deleteSet,
     deleteExercise,
@@ -54,7 +57,7 @@ export default function WorkoutDetailPage() {
     const olderWorkouts = workouts.filter(w => new Date(w.date) < new Date(currentWorkoutDate));
 
     for (const w of olderWorkouts) {
-      const prevExercise = w.exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
+      const prevExercise = w.exercises.find(e => normalizeKey(e.name) === normalizeKey(exerciseName));
       if (prevExercise && prevExercise.sets.length > 0) {
         const maxWeightData = prevExercise.sets.reduce((max, set) => set.weight > max.weight ? set : max, prevExercise.sets[0]);
         const setsWithMaxWeight = prevExercise.sets.filter(s => s.weight === maxWeightData.weight && s.reps === maxWeightData.reps);
@@ -87,6 +90,10 @@ export default function WorkoutDetailPage() {
         <div className="mb-6">
           <AddExerciseDialog
             workoutName={workout.name}
+            workouts={workouts}
+            customExercises={customExercises}
+            existingExerciseNames={workout.exercises.map((e) => e.name)}
+            onCreateCustomExercise={createCustomExercise}
             isLoading={addingExerciseToWorkoutId === workout.id}
             onAddExercise={(name) => {
               addExercise(workout.id, name)

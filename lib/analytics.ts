@@ -1,5 +1,5 @@
 import { Exercise, Workout, Set } from "@/hooks/use-workouts"
-import { getMuscleGroup, MuscleGroup, MUSCLE_GROUPS, MUSCLE_GROUP_LABELS } from "@/lib/exercises"
+import { getMuscleGroup, normalizeKey, ExerciseDef, MuscleGroup, MUSCLE_GROUPS, MUSCLE_GROUP_LABELS } from "@/lib/exercises"
 
 export function calcSetVolume(set: { reps: number; weight: number }): number {
   return set.reps * set.weight
@@ -47,7 +47,7 @@ export interface ExercisePR {
 }
 
 function getExerciseNameKey(name: string): string {
-  return name.trim().toLowerCase()
+  return normalizeKey(name)
 }
 
 export function getPRs(workouts: Workout[]): ExercisePR[] {
@@ -179,13 +179,13 @@ export interface VolumeByMuscle {
   percentage: number
 }
 
-export function getVolumeByMuscle(workouts: Workout[]): VolumeByMuscle[] {
+export function getVolumeByMuscle(workouts: Workout[], customExercises: ExerciseDef[] = []): VolumeByMuscle[] {
   const totals: Record<string, number> = {}
   MUSCLE_GROUPS.forEach((g) => (totals[g] = 0))
 
   for (const w of workouts) {
     for (const ex of w.exercises) {
-      const group = getMuscleGroup(ex.name)
+      const group = getMuscleGroup(ex.name, customExercises)
       totals[group] = (totals[group] || 0) + calcExerciseVolume(ex)
     }
   }

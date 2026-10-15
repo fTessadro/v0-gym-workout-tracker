@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { ExerciseDef, MuscleGroup, DayType, resolveExerciseName } from '@/lib/exercises'
 
 export interface Set {
   id: string
@@ -33,6 +34,7 @@ export interface Template {
 export function useWorkouts() {
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
+  const [customExercises, setCustomExercises] = useState<ExerciseDef[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [deviceId, setDeviceId] = useState<string>('')
 
@@ -130,6 +132,24 @@ export function useWorkouts() {
 
         setWorkouts(formattedWorkouts)
         setTemplates(formattedTemplates)
+
+        // Ejercicios propios: si la tabla aún no existe (migración 003 sin correr) no rompe la carga
+        const customRes = await supabase
+          .from('custom_exercises')
+          .select('name, muscle_group, suggested_in')
+          .eq('device_id', deviceId)
+        if (customRes.error) {
+          console.warn('No se pudieron cargar los ejercicios propios:', customRes.error.message)
+        } else {
+          setCustomExercises(
+            (customRes.data || []).map((c: any) => ({
+              name: c.name,
+              muscle: c.muscle_group as MuscleGroup,
+              suggestedIn: (c.suggested_in || []) as DayType[],
+              custom: true,
+            }))
+          )
+        }
       } catch (error) {
         console.error('Error fetching data:', error)
         toast.error('No se pudieron cargar los datos. Revisá tu conexión.')
@@ -244,6 +264,8 @@ export function useWorkouts() {
   ): Promise<Exercise | undefined> => {
     setAddingExerciseToWorkoutId(workoutId)
     try {
+      // Unifica el nombre: catálogo/alias, ejercicio propio o el que ya usaste (ignora tildes y mayúsculas)
+      exerciseName = resolveExerciseName(exerciseName, customExercises, workouts)
       const { data, error } = await supabase
         .from('exercises')
         .insert([{ name: exerciseName, workout_id: workoutId }])
@@ -272,6 +294,26 @@ export function useWorkouts() {
     } finally {
       setAddingExerciseToWorkoutId(null)
     }
+  }
+
+  const createCustomExercise = async (
+    name: string,
+    muscle: MuscleGroup,
+    suggestedIn: DayType[]
+  ): Promise<ExerciseDef> => {
+    const def: ExerciseDef = { name: name.trim(), muscle, suggestedIn, custom: true }
+    // Se muestra enseguida; si falla el guardado queda solo en esta sesión
+    setCustomExercises((prev) => [def, ...prev])
+    try {
+      const { error } = await supabase.from('custom_exercises').insert([
+        { device_id: deviceId, name: def.name, muscle_group: muscle, suggested_in: suggestedIn },
+      ])
+      if (error) throw error
+    } catch (error) {
+      console.error('Error saving custom exercise:', error)
+      toast.error('No se pudo guardar el ejercicio propio. ¿Corriste la migración 003 en Supabase?')
+    }
+    return def
   }
 
   const deleteExercise = async (workoutId: string, exerciseId: string) => {
@@ -537,6 +579,8 @@ export function useWorkouts() {
   return {
     workouts,
     templates,
+    customExercises,
+    createCustomExercise,
     isLoaded,
     createWorkout,
     deleteWorkout,

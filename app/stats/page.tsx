@@ -24,25 +24,31 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getPRs, calcWorkoutVolume, calc1RM, getVolumeByMuscle, filterWorkoutsByRange } from '@/lib/analytics'
-import { MUSCLE_GROUP_LABELS, MUSCLE_GROUP_COLORS, MuscleGroup } from '@/lib/exercises'
+import { MUSCLE_GROUP_LABELS, MUSCLE_GROUP_COLORS, MuscleGroup, normalizeKey } from '@/lib/exercises'
 import { PieChart, Pie, Cell } from 'recharts'
 
 export default function StatsPage() {
   const router = useRouter()
-  const { workouts, isLoaded } = useWorkouts()
+  const { workouts, customExercises, isLoaded } = useWorkouts()
   const [selectedExercise, setSelectedExercise] = useState<string>('')
   const [muscleRange, setMuscleRange] = useState<'all' | 'month' | 'week'>('month')
 
-  const uniqueExercises = useMemo(() => {
-    const exercises = new Set<string>()
+  // clave normalizada -> nombre para mostrar (agrupa "Remo maquina" y "Remo Máquina")
+  const exerciseNames = useMemo(() => {
+    const names = new Map<string, string>()
     workouts.forEach((w) => {
       w.exercises.forEach((e) => {
-        const trimmedName = e.name.trim().toLowerCase()
-        if (trimmedName) exercises.add(trimmedName)
+        const key = normalizeKey(e.name)
+        if (key && !names.has(key)) names.set(key, e.name.trim())
       })
     })
-    return Array.from(exercises).sort()
+    return names
   }, [workouts])
+
+  const uniqueExercises = useMemo(
+    () => Array.from(exerciseNames.keys()).sort((a, b) => a.localeCompare(b)),
+    [exerciseNames]
+  )
 
   const chartData = useMemo(() => {
     if (!selectedExercise) return []
@@ -52,7 +58,7 @@ export default function StatsPage() {
     )
     sortedWorkouts.forEach((w) => {
       const exercise = w.exercises.find(
-        (e) => e.name.trim().toLowerCase() === selectedExercise
+        (e) => normalizeKey(e.name) === selectedExercise
       )
       if (exercise && exercise.sets.length > 0) {
         const maxWeight = Math.max(...exercise.sets.map((s) => s.weight))
@@ -83,8 +89,8 @@ export default function StatsPage() {
 
   const volumeByMuscle = useMemo(() => {
     const filtered = filterWorkoutsByRange(workouts, muscleRange)
-    return getVolumeByMuscle(filtered)
-  }, [workouts, muscleRange])
+    return getVolumeByMuscle(filtered, customExercises)
+  }, [workouts, muscleRange, customExercises])
 
   if (!isLoaded) {
     return (
@@ -147,8 +153,8 @@ export default function StatsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {uniqueExercises.map((ex) => (
-                    <SelectItem key={ex} value={ex} className="capitalize">
-                      {ex}
+                    <SelectItem key={ex} value={ex}>
+                      {exerciseNames.get(ex)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -157,8 +163,8 @@ export default function StatsPage() {
 
             {selectedExercise && (
               <div className="bg-card border rounded-lg p-4 shadow-sm">
-                <h3 className="font-semibold mb-4 text-center capitalize">
-                  {selectedExercise}
+                <h3 className="font-semibold mb-4 text-center">
+                  {exerciseNames.get(selectedExercise)}
                 </h3>
                 {chartData.length < 2 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
