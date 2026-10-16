@@ -7,8 +7,9 @@ import { ExerciseCard } from '@/components/exercise-card'
 import { WorkoutNotes } from '@/components/workout-notes'
 import { SessionSummary } from '@/components/session-summary'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
-import { isSetPR } from '@/lib/analytics'
+import { ArrowLeft, Copy } from 'lucide-react'
+import { toast } from 'sonner'
+import { isSetPR, formatWorkoutAsText, calcTotalSets } from '@/lib/analytics'
 import { normalizeKey } from '@/lib/exercises'
 
 export default function WorkoutDetailPage() {
@@ -38,6 +39,30 @@ export default function WorkoutDetailPage() {
         <p className="text-muted-foreground">Entrenamiento no encontrado</p>
       </div>
     )
+  }
+
+  const handleCopy = async () => {
+    const text = formatWorkoutAsText(workout)
+    if (calcTotalSets(workout) === 0) {
+      toast.error('Todavía no hay series cargadas para copiar.')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Fallback para navegadores sin Clipboard API
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      if (!ok) {
+        toast.error('No se pudo copiar.')
+        return
+      }
+    }
+    toast.success('Entrenamiento copiado.')
   }
 
   const formatDate = (dateString: string) => {
@@ -84,6 +109,15 @@ export default function WorkoutDetailPage() {
             <h1 className="text-2xl font-bold">{workout.name}</h1>
             <p className="text-sm text-muted-foreground">{formatDate(workout.date)}</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 w-10 p-0"
+            aria-label="Copiar entrenamiento"
+            onClick={handleCopy}
+          >
+            <Copy className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Add Exercise Button */}

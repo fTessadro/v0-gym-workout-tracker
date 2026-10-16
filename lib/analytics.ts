@@ -13,6 +13,17 @@ export function calcWorkoutVolume(workout: Workout): number {
   return workout.exercises.reduce((acc, ex) => acc + calcExerciseVolume(ex), 0)
 }
 
+// Texto plano para copiar: nombre del entrenamiento, y por ejercicio una línea por serie ("8 x 45kg")
+export function formatWorkoutAsText(workout: Workout): string {
+  const lines = [workout.name]
+  for (const ex of workout.exercises) {
+    if (ex.sets.length === 0) continue
+    lines.push(ex.name)
+    for (const s of ex.sets) lines.push(`${s.reps} x ${Number(s.weight)}kg`)
+  }
+  return lines.join("\n")
+}
+
 export function calcTotalSets(workout: Workout): number {
   return workout.exercises.reduce((acc, ex) => acc + ex.sets.length, 0)
 }
