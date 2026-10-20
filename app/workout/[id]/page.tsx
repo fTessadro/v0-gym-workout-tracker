@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useWorkouts } from '@/hooks/use-workouts'
 import { AddExerciseDialog } from '@/components/add-exercise-dialog'
-import { ExerciseCard } from '@/components/exercise-card'
+import { ExerciseCard, PreviousSession } from '@/components/exercise-card'
 import { WorkoutNotes } from '@/components/workout-notes'
 import { SessionSummary } from '@/components/session-summary'
 import { Button } from '@/components/ui/button'
@@ -77,19 +77,23 @@ export default function WorkoutDetailPage() {
     })
   }
 
-  const getPreviousExerciseData = (exerciseName: string, currentWorkoutDate: string) => {
-    if (!workouts || workouts.length === 0) return null;
-    const olderWorkouts = workouts.filter(w => new Date(w.date) < new Date(currentWorkoutDate));
+  // Todas las series de la sesión más reciente anterior que tenga este ejercicio
+  const getPreviousSession = (exerciseName: string, currentWorkoutDate: string): PreviousSession | null => {
+    const key = normalizeKey(exerciseName)
+    const olderWorkouts = workouts
+      .filter((w) => new Date(w.date) < new Date(currentWorkoutDate))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
     for (const w of olderWorkouts) {
-      const prevExercise = w.exercises.find(e => normalizeKey(e.name) === normalizeKey(exerciseName));
-      if (prevExercise && prevExercise.sets.length > 0) {
-        const maxWeightData = prevExercise.sets.reduce((max, set) => set.weight > max.weight ? set : max, prevExercise.sets[0]);
-        const setsWithMaxWeight = prevExercise.sets.filter(s => s.weight === maxWeightData.weight && s.reps === maxWeightData.reps);
-        return `${setsWithMaxWeight.length}x${maxWeightData.reps} con ${maxWeightData.weight}kg`;
+      const prev = w.exercises.find((e) => normalizeKey(e.name) === key && e.sets.length > 0)
+      if (prev) {
+        return {
+          date: w.date,
+          sets: prev.sets.map((s) => ({ reps: s.reps, weight: Number(s.weight) })),
+        }
       }
     }
-    return null;
+    return null
   }
 
   return (
@@ -162,7 +166,7 @@ export default function WorkoutDetailPage() {
               <ExerciseCard
                 key={exercise.id}
                 exercise={exercise}
-                previousData={getPreviousExerciseData(exercise.name, workout.date)}
+                previousSession={getPreviousSession(exercise.name, workout.date)}
                 isAddingSet={addingSetToExerciseId === exercise.id}
                 deletingSetId={deletingSetId}
                 isDeletingExercise={deletingExerciseId === exercise.id}

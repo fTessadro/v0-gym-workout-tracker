@@ -1,16 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Exercise, Set } from '@/hooks/use-workouts'
-import { Trash2, Plus, Info, Loader2, Trophy } from 'lucide-react'
+import { Trash2, Plus, Minus, Info, Loader2, Trophy } from 'lucide-react'
+
+export interface PreviousSession {
+  date: string
+  sets: { reps: number; weight: number }[]
+}
 
 interface ExerciseCardProps {
   exercise: Exercise
-  previousData?: string | null
+  previousSession?: PreviousSession | null
   isAddingSet?: boolean
   deletingSetId?: string | null
   isDeletingExercise?: boolean
@@ -20,9 +25,15 @@ interface ExerciseCardProps {
   onDeleteExercise: () => void
 }
 
+const WEIGHT_STEP = 2.5
+
+function formatNumber(n: number): string {
+  return String(Math.round(Number(n) * 100) / 100)
+}
+
 export function ExerciseCard({
   exercise,
-  previousData,
+  previousSession,
   isAddingSet = false,
   deletingSetId,
   isDeletingExercise = false,
@@ -31,24 +42,63 @@ export function ExerciseCard({
   onDeleteSet,
   onDeleteExercise,
 }: ExerciseCardProps) {
-  const [reps, setReps] = useState('')
-  const [weight, setWeight] = useState('')
-  const [showForm, setShowForm] = useState(false)
+  // Valores sugeridos: la última serie de hoy o, si no hay, la primera de la última vez
+  const lastSet = exercise.sets[exercise.sets.length - 1]
+  const defaultSet = lastSet ?? previousSession?.sets[0]
 
-  const handleAddSet = () => {
-    const repsNum = parseInt(reps)
-    const weightNum = parseFloat(weight)
-    if (repsNum > 0 && weightNum >= 0) {
-      onAddSet(repsNum, weightNum)
-      setReps('')
-      setWeight('')
-      setShowForm(false)
+  const [reps, setReps] = useState(defaultSet ? formatNumber(defaultSet.reps) : '')
+  const [weight, setWeight] = useState(defaultSet ? formatNumber(defaultSet.weight) : '')
+  const touched = useRef(false)
+
+  // Si llegan datos después (o se agrega una serie) y no tocaste nada, se actualiza el prellenado
+  useEffect(() => {
+    if (!touched.current && defaultSet) {
+      setReps(formatNumber(defaultSet.reps))
+      setWeight(formatNumber(defaultSet.weight))
+    }
+  }, [defaultSet?.reps, defaultSet?.weight]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const parseWeight = (v: string) => parseFloat(v.replace(',', '.'))
+
+  const bump = (field: 'reps' | 'weight', delta: number) => {
+    touched.current = true
+    if (field === 'reps') {
+      const next = Math.max(1, (parseInt(reps) || 0) + delta)
+      setReps(String(next))
+    } else {
+      const next = Math.max(0, (parseWeight(weight) || 0) + delta)
+      setWeight(formatNumber(next))
     }
   }
 
+  const fillFrom = (s: { reps: number; weight: number }) => {
+    touched.current = true
+    setReps(formatNumber(s.reps))
+    setWeight(formatNumber(s.weight))
+  }
+
+  const repsNum = parseInt(reps)
+  const weightNum = parseWeight(weight)
+  const canSave = repsNum > 0 && weightNum >= 0 && !isAddingSet
+
+  const handleAddSet = () => {
+    if (!canSave) return
+    onAddSet(repsNum, weightNum)
+    // Los valores quedan cargados para repetir la misma serie con un solo toque
+    touched.current = false
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleAddSet()
+  }
+
+  const prevDate = previousSession
+    ? new Date(previousSession.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+    : ''
+
   return (
     <Card className="p-4">
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-semibold">{exercise.name}</h3>
         <Button
           variant="ghost"
@@ -64,6 +114,28 @@ export function ExerciseCard({
           )}
         </Button>
       </div>
+
+      {/* Todas las series de la última vez; tocar una la carga en el formulario */}
+      {previousSession && previousSession.sets.length > 0 && (
+        <div className="mb-4 bg-primary/10 rounded-lg px-3 py-2">
+          <p className="text-xs text-primary flex items-center gap-1.5 mb-1.5">
+            <Info className="w-3.5 h-3.5" />
+            Última vez · {prevDate}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {previousSession.sets.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => fillFrom(s)}
+                className="text-xs font-medium bg-background border rounded-md px-2 py-1 active:bg-accent"
+              >
+                {s.reps}×{formatNumber(s.weight)}kg
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sets List */}
       {exercise.sets.length > 0 && (
@@ -81,7 +153,7 @@ export function ExerciseCard({
                   <div className="flex-1 flex items-center gap-2">
                     <p className="text-sm">
                       <span className="font-semibold text-primary">S{index + 1}:</span>{' '}
-                      <span className="font-medium">{set.reps}x{set.weight}kg</span>
+                      <span className="font-medium">{set.reps}x{formatNumber(set.weight)}kg</span>
                     </p>
                     {isPR && (
                       <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-yellow-500 hover:bg-yellow-500 text-yellow-950">
@@ -110,80 +182,95 @@ export function ExerciseCard({
         </div>
       )}
 
-      {previousData && (
-        <div className="mb-4 bg-primary/10 text-primary px-3 py-2 rounded-lg text-sm flex items-center gap-2">
-          <Info className="w-4 h-4" />
-          <span>Última vez: <span className="font-semibold">{previousData}</span></span>
-        </div>
-      )}
-
-      {/* Add Set Form */}
-      {!showForm ? (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setShowForm(true)}
-          disabled={isAddingSet}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Serie
-        </Button>
-      ) : (
-        <div className="space-y-3 bg-primary/5 border border-primary/20 p-4 rounded-lg">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-xs text-muted-foreground block mb-1">Repeticiones</label>
+      {/* Formulario siempre abierto */}
+      <div className="space-y-3 bg-primary/5 border border-primary/20 p-3 rounded-lg">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Repeticiones</label>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-9 shrink-0"
+                onClick={() => bump('reps', -1)}
+                disabled={isAddingSet}
+                aria-label="Menos repeticiones"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 placeholder="12"
                 value={reps}
-                onChange={(e) => setReps(e.target.value)}
-                min="1"
-                className="w-full"
-                autoFocus
+                onChange={(e) => {
+                  touched.current = true
+                  setReps(e.target.value)
+                }}
+                onKeyDown={handleKeyDown}
+                className="h-10 min-w-0 px-1 text-center"
                 disabled={isAddingSet}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-9 shrink-0"
+                onClick={() => bump('reps', 1)}
+                disabled={isAddingSet}
+                aria-label="Más repeticiones"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
-            <div className="flex-1">
-              <label className="text-xs text-muted-foreground block mb-1">Peso (kg)</label>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Peso (kg)</label>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-9 shrink-0"
+                onClick={() => bump('weight', -WEIGHT_STEP)}
+                disabled={isAddingSet}
+                aria-label="Menos peso"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
               <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="50"
                 value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                min="0"
-                step="0.5"
-                className="w-full"
+                onChange={(e) => {
+                  touched.current = true
+                  setWeight(e.target.value)
+                }}
+                onKeyDown={handleKeyDown}
+                className="h-10 min-w-0 px-1 text-center"
                 disabled={isAddingSet}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-9 shrink-0"
+                onClick={() => bump('weight', WEIGHT_STEP)}
+                disabled={isAddingSet}
+                aria-label="Más peso"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              className="flex-1"
-              onClick={handleAddSet}
-              disabled={!reps || !weight || isAddingSet}
-            >
-              {isAddingSet ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              {isAddingSet ? 'Guardando...' : 'Guardar'}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                setShowForm(false)
-                setReps('')
-                setWeight('')
-              }}
-              disabled={isAddingSet}
-            >
-              Cancelar
-            </Button>
-          </div>
         </div>
-      )}
+        <Button className="w-full" onClick={handleAddSet} disabled={!canSave}>
+          {isAddingSet ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          {isAddingSet ? 'Guardando...' : `Guardar serie ${exercise.sets.length + 1}`}
+        </Button>
+      </div>
     </Card>
   )
 }

@@ -11,7 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Settings, Copy, Download, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Settings, Copy, Download, Check, ListChecks } from 'lucide-react'
 import { useWorkouts } from '@/hooks/use-workouts'
 
 export function SettingsDialog() {
@@ -79,6 +80,19 @@ export function SettingsDialog() {
                 Vincular
               </Button>
             </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium">Mis ejercicios</label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Unificá nombres repetidos y asigná el músculo de cada ejercicio.
+            </p>
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/exercises">
+                <ListChecks className="w-4 h-4 mr-2" />
+                Administrar ejercicios
+              </Link>
+            </Button>
           </div>
 
           <div className="space-y-2 pt-2 border-t">

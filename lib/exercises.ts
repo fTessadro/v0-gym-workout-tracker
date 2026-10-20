@@ -233,6 +233,92 @@ function levenshtein(a: string, b: string): number {
   return dp[a.length][b.length]
 }
 
+/** ¿Dos nombres distintos parecen el mismo ejercicio (error de tipeo, tilde, etc.)? Más estricto que el buscador. */
+export function areSimilarNames(a: string, b: string): boolean {
+  const ka = normalizeKey(a)
+  const kb = normalizeKey(b)
+  if (ka === kb) return true
+  const minLen = Math.min(ka.length, kb.length)
+  if (minLen < 5) return false
+  return levenshtein(ka, kb) <= Math.max(1, Math.floor(minLen * 0.2))
+}
+
+export interface ExerciseSummary {
+  key: string
+  /** Nombre canónico: el del catálogo/propio, o la variante más usada */
+  name: string
+  /** Escrituras exactas que existen en tus datos (más de una = hay que unificar) */
+  variants: string[]
+  sessions: number
+  muscle: MuscleGroup
+  isCatalog: boolean
+  isCustom: boolean
+}
+
+/** Agrupa todos los ejercicios de tus entrenamientos y plantillas (por nombre o alias) para la pantalla "Mis ejercicios". */
+export function summarizeExercises(
+  workouts: { exercises: { name: string }[] }[],
+  templates: { exercises: { name: string }[] }[],
+  custom: ExerciseDef[] = []
+): ExerciseSummary[] {
+  interface Group {
+    def?: ExerciseDef
+    variants: Map<string, number>
+    sessions: number
+  }
+  const groups = new Map<string, Group>()
+
+  const groupFor = (raw: string): Group | undefined => {
+    if (!normalizeKey(raw)) return undefined
+    const def = findExerciseDef(raw, custom)
+    const key = normalizeKey(def ? def.name : raw)
+    let g = groups.get(key)
+    if (!g) {
+      g = { def, variants: new Map(), sessions: 0 }
+      groups.set(key, g)
+    }
+    return g
+  }
+
+  for (const w of workouts) {
+    const seen = new Set<Group>()
+    for (const e of w.exercises) {
+      const g = groupFor(e.name)
+      if (!g) continue
+      g.variants.set(e.name, (g.variants.get(e.name) || 0) + 1)
+      if (!seen.has(g)) {
+        seen.add(g)
+        g.sessions += 1
+      }
+    }
+  }
+  for (const t of templates) {
+    for (const e of t.exercises) {
+      const g = groupFor(e.name)
+      if (g) g.variants.set(e.name, (g.variants.get(e.name) || 0) + 1)
+    }
+  }
+  // Ejercicios propios que todavía no usaste
+  for (const c of custom) groupFor(c.name)
+
+  const result: ExerciseSummary[] = []
+  for (const [key, g] of groups) {
+    const sorted = Array.from(g.variants.entries()).sort((a, b) => b[1] - a[1]).map(([n]) => n)
+    const name = g.def ? g.def.name : (sorted[0] ?? key).trim()
+    const muscle = g.def ? g.def.muscle : getMuscleGroup(name, custom)
+    result.push({
+      key,
+      name,
+      variants: sorted.length > 0 ? sorted : [name],
+      sessions: g.sessions,
+      muscle,
+      isCatalog: !!g.def && !g.def.custom,
+      isCustom: !!g.def?.custom,
+    })
+  }
+  return result.sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name))
+}
+
 /** Ejercicios conocidos con nombre parecido al escrito (para "¿Quisiste decir...?"). */
 export function findSimilarExercises(
   name: string,

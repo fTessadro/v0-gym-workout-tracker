@@ -3,7 +3,21 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ExerciseDef, MuscleGroup, DayType, resolveExerciseName } from '@/lib/exercises'
+import {
+  ExerciseDef,
+  MuscleGroup,
+  DayType,
+  DAY_TYPES,
+  resolveExerciseName,
+  findExerciseDef,
+  normalizeKey,
+} from '@/lib/exercises'
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
 
 export interface Set {
   id: string
@@ -316,6 +330,128 @@ export function useWorkouts() {
     return def
   }
 
+  /**
+   * Renombra todas las escrituras `fromNames` a `toName` en tus entrenamientos,
+   * plantillas y ejercicios propios. Si `toName` ya existe, equivale a fusionarlos.
+   */
+  const renameExercise = async (fromNames: string[], toName: string): Promise<boolean> => {
+    const target = resolveExerciseName(toName, customExercises, workouts)
+    if (!target) return false
+    const from = new Set(fromNames.filter((n) => n !== target))
+    if (from.size === 0) return true
+    const fromList = Array.from(from)
+
+    try {
+      const workoutIds = workouts
+        .filter((w) => w.exercises.some((e) => from.has(e.name)))
+        .map((w) => w.id)
+      for (const ids of chunk(workoutIds, 40)) {
+        const { error } = await supabase
+          .from('exercises')
+          .update({ name: target })
+          .in('workout_id', ids)
+          .in('name', fromList)
+        if (error) throw error
+      }
+
+      const templateIds = templates
+        .filter((t) => t.exercises.some((e) => from.has(e.name)))
+        .map((t) => t.id)
+      for (const ids of chunk(templateIds, 40)) {
+        const { error } = await supabase
+          .from('template_exercises')
+          .update({ name: target })
+          .in('template_id', ids)
+          .in('name', fromList)
+        if (error) throw error
+      }
+
+      // Ejercicios propios: si el destino ya existe se descartan, si no se renombran
+      const customFrom = customExercises.filter((c) => from.has(c.name))
+      if (customFrom.length > 0) {
+        const others = customExercises.filter((c) => !from.has(c.name))
+        const targetExists = !!findExerciseDef(target, others)
+        if (targetExists) {
+          const { error } = await supabase
+            .from('custom_exercises')
+            .delete()
+            .eq('device_id', deviceId)
+            .in('name', customFrom.map((c) => c.name))
+          if (error) throw error
+        } else {
+          const { error: delError } = await supabase
+            .from('custom_exercises')
+            .delete()
+            .eq('device_id', deviceId)
+            .in('name', customFrom.map((c) => c.name))
+          if (delError) throw delError
+          const keep = customFrom[0]
+          const { error } = await supabase.from('custom_exercises').insert([
+            {
+              device_id: deviceId,
+              name: target,
+              muscle_group: keep.muscle,
+              suggested_in: keep.suggestedIn,
+            },
+          ])
+          if (error) throw error
+        }
+        setCustomExercises((prev) => {
+          const rest = prev.filter((c) => !from.has(c.name))
+          if (targetExists) return rest
+          const keep = prev.find((c) => from.has(c.name))
+          return keep ? [{ ...keep, name: target }, ...rest] : rest
+        })
+      }
+
+      const rename = <T extends { name: string }>(e: T): T => (from.has(e.name) ? { ...e, name: target } : e)
+      setWorkouts((prev) => prev.map((w) => ({ ...w, exercises: w.exercises.map(rename) })))
+      setTemplates((prev) => prev.map((t) => ({ ...t, exercises: t.exercises.map(rename) })))
+      toast.success(`Ejercicios unificados como "${target}".`)
+      return true
+    } catch (error) {
+      console.error('Error renaming exercise:', error)
+      toast.error('No se pudo completar el cambio. Recargá la página para ver el estado real.')
+      return false
+    }
+  }
+
+  /** Asigna (o cambia) el músculo de un ejercicio propio o sin clasificar. */
+  const setExerciseMuscle = async (name: string, muscle: MuscleGroup): Promise<boolean> => {
+    const key = normalizeKey(name)
+    const existing = customExercises.find((c) => normalizeKey(c.name) === key)
+    const dayTypes = (muscle !== 'otros' ? [muscle] : []) as DayType[]
+    const suggestedIn = Array.from(
+      new Set<DayType>([...dayTypes, ...(existing?.suggestedIn || []).filter((t) => DAY_TYPES.includes(t))])
+    )
+    try {
+      if (existing) {
+        const { error } = await supabase
+          .from('custom_exercises')
+          .update({ muscle_group: muscle, suggested_in: suggestedIn })
+          .eq('device_id', deviceId)
+          .eq('name', existing.name)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('custom_exercises').insert([
+          { device_id: deviceId, name: name.trim(), muscle_group: muscle, suggested_in: suggestedIn },
+        ])
+        if (error) throw error
+      }
+      setCustomExercises((prev) => {
+        const def: ExerciseDef = { name: existing?.name ?? name.trim(), muscle, suggestedIn, custom: true }
+        return existing
+          ? prev.map((c) => (normalizeKey(c.name) === key ? def : c))
+          : [def, ...prev]
+      })
+      return true
+    } catch (error) {
+      console.error('Error setting muscle:', error)
+      toast.error('No se pudo guardar el músculo.')
+      return false
+    }
+  }
+
   const deleteExercise = async (workoutId: string, exerciseId: string) => {
     setDeletingExerciseId(exerciseId)
     try {
@@ -581,6 +717,8 @@ export function useWorkouts() {
     templates,
     customExercises,
     createCustomExercise,
+    renameExercise,
+    setExerciseMuscle,
     isLoaded,
     createWorkout,
     deleteWorkout,
