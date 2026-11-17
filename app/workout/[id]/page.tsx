@@ -9,7 +9,7 @@ import { SessionSummary } from '@/components/session-summary'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { isSetPR, formatWorkoutAsText, calcTotalSets } from '@/lib/analytics'
+import { isSetPR, formatWorkoutAsText, calcTotalSets, calc1RM } from '@/lib/analytics'
 import { normalizeKey } from '@/lib/exercises'
 
 export default function WorkoutDetailPage() {
@@ -96,6 +96,27 @@ export default function WorkoutDetailPage() {
     return null
   }
 
+  // Mejor sesión histórica: la que contiene la serie con mayor 1RM estimado (mismo criterio que los PR)
+  const getBestSession = (exerciseName: string): PreviousSession | null => {
+    const key = normalizeKey(exerciseName)
+    let best: PreviousSession | null = null
+    let bestScore = 0
+    for (const w of workouts) {
+      if (w.id === workout.id) continue
+      const ex = w.exercises.find((e) => normalizeKey(e.name) === key && e.sets.length > 0)
+      if (!ex) continue
+      const score = Math.max(...ex.sets.map((s) => calc1RM(Number(s.weight), s.reps)))
+      if (score > bestScore) {
+        bestScore = score
+        best = {
+          date: w.date,
+          sets: ex.sets.map((s) => ({ reps: s.reps, weight: Number(s.weight) })),
+        }
+      }
+    }
+    return best
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-md mx-auto px-4 pt-6 pb-20">
@@ -167,6 +188,7 @@ export default function WorkoutDetailPage() {
                 key={exercise.id}
                 exercise={exercise}
                 previousSession={getPreviousSession(exercise.name, workout.date)}
+                bestSession={getBestSession(exercise.name)}
                 isAddingSet={addingSetToExerciseId === exercise.id}
                 deletingSetId={deletingSetId}
                 isDeletingExercise={deletingExerciseId === exercise.id}

@@ -16,6 +16,7 @@ export interface PreviousSession {
 interface ExerciseCardProps {
   exercise: Exercise
   previousSession?: PreviousSession | null
+  bestSession?: PreviousSession | null
   isAddingSet?: boolean
   deletingSetId?: string | null
   isDeletingExercise?: boolean
@@ -34,6 +35,7 @@ function formatNumber(n: number): string {
 export function ExerciseCard({
   exercise,
   previousSession,
+  bestSession,
   isAddingSet = false,
   deletingSetId,
   isDeletingExercise = false,
@@ -96,6 +98,10 @@ export function ExerciseCard({
     ? new Date(previousSession.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
     : ''
 
+  const bestDate = bestSession
+    ? new Date(bestSession.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+    : ''
+
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between mb-3">
@@ -124,6 +130,28 @@ export function ExerciseCard({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {previousSession.sets.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => fillFrom(s)}
+                className="text-xs font-medium bg-background border rounded-md px-2 py-1 active:bg-accent"
+              >
+                {s.reps}×{formatNumber(s.weight)}kg
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mejor sesión histórica; tocar una serie la carga en el formulario */}
+      {bestSession && bestSession.sets.length > 0 && (
+        <div className="mb-4 bg-yellow-500/10 rounded-lg px-3 py-2">
+          <p className="text-xs text-yellow-700 dark:text-yellow-500 flex items-center gap-1.5 mb-1.5">
+            <Trophy className="w-3.5 h-3.5" />
+            Mejor sesión · {bestDate}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {bestSession.sets.map((s, i) => (
               <button
                 key={i}
                 type="button"
